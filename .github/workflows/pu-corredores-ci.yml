@@ -1,0 +1,124 @@
+name: PartsUnlimited-Demo/PU-Corredores-CI
+on:
+  push:
+    branches:
+    - master
+env:
+  BuildConfiguration: release
+  BuildPlatform: any cpu
+  Parameters_ArtifactName: drop
+  Parameters_solution: "**\\*.sln"
+  system_debug: 'false'
+jobs:
+  Job_1:
+    name: Agent job 1
+    runs-on: windows-latest
+    steps:
+    - name: checkout
+      uses: actions/checkout@v4.1.0
+    - name: Use NuGet 4.4.1
+      uses: nuget/setup-nuget@v1.2.0
+      with:
+        nuget-version: 4.4.1
+#     # This item has no matching transformer
+#     - environment: {}
+#       enabled: true
+#       continueOnError: false
+#       alwaysRun: false
+#       displayName: Prepare analysis on SonarQube
+#       retryCountOnTaskFailure: 0
+#       task: 15b84ca1-b62f-4a2a-a403-89b77a063157@5
+#       inputs:
+#         SonarQube: a04745b3-7a16-4bfc-b198-f41c3838ff30
+#         scannerMode: MSBuild
+#         configMode: file
+#         configFile: sonar-project.properties
+#         cliProjectKey:
+#         projectKey: PartsUnlimited
+#         cliProjectName:
+#         projectName: PartsUnlimited
+#         cliProjectVersion: 1.0
+#         projectVersion: 1.0
+#         cliSources: "."
+#         extraProperties: "# Additional properties that will be passed to the scanner, \n# Put one key=value per line, example:\n# sonar.exclusions=**/*.bin"
+#       task_type: task
+    - name: NuGet restore
+      run: |-
+        nuget sources disable -Name nuget.org
+        nuget sources add -Source "https://pkgs.dev.azure.com/devopslabscol/fb0f7b08-8190-46a9-9a3e-23c877454a4f/_packaging/502e5fb3-8267-4d60-bfc2-9dd6f59963fb/nuget/v3/index.json" -Name "502e5fb3-8267-4d60-bfc2-9dd6f59963fb" -Username "n/a" -Password "${{ secrets.AZURE_DEVOPS_TOKEN }}"
+        nuget restore ${{ env.Parameters_solution }} -Verbosity "Detailed"
+    - name: install msbuild
+      uses: microsoft/setup-msbuild@v1.3.1
+    - name: run msbuild
+      run: msbuild ${{ env.Parameters_solution }} /p:DeployOnBuild=true /p:WebPublishMethod=Package /p:PackageAsSingleFile=true /p:SkipInvalidConfigurations=true /p:PackageLocation="${{ runner.temp }}\\" -p:Configuration=${{ env.BuildConfiguration }} -p:Platform="${{ env.BuildPlatform }}" -v:normal
+#     # This item has no matching transformer
+#     - environment: {}
+#       enabled: false
+#       continueOnError: false
+#       alwaysRun: false
+#       displayName: WhiteSource
+#       retryCountOnTaskFailure: 0
+#       task: 58dccf9e-3eaf-4533-a9b6-1e5a1845d036@21
+#       inputs:
+#         cwd: "${{ github.workspace }}"
+#         projectName:
+#         scanReportTimeout: 10.0
+#       task_type: task
+#     # This item has no matching transformer
+#     - environment: {}
+#       enabled: true
+#       continueOnError: false
+#       alwaysRun: false
+#       displayName: Run Code Analysis
+#       retryCountOnTaskFailure: 0
+#       task: 6d01813a-9589-4b15-8491-8164aeb38055@5
+#       inputs: {}
+#       task_type: task
+#     # This item has no matching transformer
+#     - environment: {}
+#       enabled: true
+#       continueOnError: false
+#       alwaysRun: false
+#       displayName: Publish Quality Gate Result
+#       retryCountOnTaskFailure: 0
+#       task: 291ed61f-1ee4-45d3-b1b0-bf822d9095ef@5
+#       inputs:
+#         pollingTimeoutSec: 300.0
+#       task_type: task
+    - name: Test Assemblies
+      if: 'false'
+      uses: microsoft/vstest-action@v1.0.0
+      with:
+        testAssembly: |-
+          **\${{ env.BuildConfiguration }}\*test*.dll
+          !**\obj\**
+        searchFolder: "${{ github.workspace }}"
+        vstestLocationMethod: version
+        vsTestVersion: latest
+        runInParallel: 'False'
+        runTestsInIsolation: 'False'
+        codeCoverageEnabled: 'False'
+        platform: "${{ env.BuildPlatform }}"
+#     # Unsupported configuration for PublishSymbols task
+#     - name: Publish symbols path
+#       continue-on-error: true
+#       SymbolsFolder: "${{ github.workspace }}"
+#       SearchPattern: "**\\bin\\**\\*.pdb"
+#       IndexSources: true
+#       PublishSymbols: false
+#       SymbolServerType: TeamServices
+#       SymbolsPath:
+#       CompressSymbols: false
+#       IndexableFileFormats: Default
+#       DetailedLog: true
+#       TreatNotIndexedAsWarning: false
+#       SymbolsMaximumWaitTime:
+#       SymbolsProduct:
+#       SymbolsVersion:
+#       SymbolsArtifactName: Symbols_${{ env.BuildConfiguration }}
+    - name: Publish Artifact
+      if: success() || failure()
+      uses: actions/upload-artifact@v4.1.0
+      with:
+        name: "${{ env.Parameters_ArtifactName }}"
+        path: "\\\\my\\share\\${{ github.workflow }}\\${{ github.run_number }}"
